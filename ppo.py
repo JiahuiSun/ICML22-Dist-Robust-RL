@@ -4,12 +4,8 @@ import numpy as np
 from numba import njit
 import torch as th
 import torch.nn.functional as F
-from torch.optim import Adam
-from torch.distributions import Independent, Normal
 from tensorboardX import SummaryWriter
 
-from util import EnvParamDist
-from network import Actor, Critic
 from baselines import logger
 from baselines.common import explained_variance
 
@@ -37,23 +33,26 @@ class PPO():
     def __init__(
         self, 
         env,
+        actor,
+        critic,
+        optim,
+        dist_fn,
         n_cpu=4,
-        lr=3e-4,
         gamma=0.99,
         gae_lambda=0.95,
-        clip=0.2,
         vf_coef=0.25,
         block_num=100,
         repeat_per_collect=10,
+        action_scaling=True,
+        norm_adv=True,
+        max_grad_norm=0.5,
+        clip=0.2,
         save_freq=10,
         log_freq=1
     ):
         self.env = env
         self.n_cpu = n_cpu
         self.block_num = block_num
-        self.obs_dim = env.observation_space.shape[0]
-        self.act_dim = env.action_space.shape[0]
-        self.lr = lr
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip = clip
@@ -63,30 +62,14 @@ class PPO():
         self.log_freq = log_freq
 
         self.action_space = env.action_space
-        self.action_scaling = True
-        self.norm_adv = True
-        self.max_grad_norm = 0.5
+        self.action_scaling = action_scaling
+        self.norm_adv = norm_adv
+        self.max_grad_norm = max_grad_norm
 
-        lower_param1, upper_param1, lower_param2, upper_param2 = self.env.get_lower_upper_bound()
-        self.env_para_dist = EnvParamDist(param_start=[lower_param1, lower_param2], param_end=[upper_param1, upper_param2])
-
-        # 创建网络并参数初始化
-        self.actor = Actor(self.obs_dim, self.act_dim)
-        self.critic = Critic(self.obs_dim, 1)
-        for m in list(self.actor.modules()) + list(self.critic.modules()):
-            if isinstance(m, th.nn.Linear):
-                # orthogonal initialization
-                th.nn.init.orthogonal_(m.weight, gain=np.sqrt(2))
-                th.nn.init.zeros_(m.bias)
-        for m in self.actor.mu.modules():
-            if isinstance(m, th.nn.Linear):
-                th.nn.init.zeros_(m.bias)
-                m.weight.data.copy_(0.01 * m.weight.data)
-        self.optim = Adam(list(self.actor.parameters())+list(self.critic.parameters()), lr=self.lr)
-        
-        def dist(mu, sigma):
-            return Independent(Normal(mu, sigma), 1)
-        self.dist_fn = dist
+        self.actor = actor
+        self.critic = critic
+        self.optim = optim
+        self.dist_fn = dist_fn
 
     def learn(self, total_iters=1000):
         st_time = time.time()
