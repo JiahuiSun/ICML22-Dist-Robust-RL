@@ -36,7 +36,8 @@ class PPO():
         env,
         actor,
         critic,
-        optim,
+        actor_optim,
+        critic_optim,
         dist_fn,
         n_cpu=4,
         eval_k=2,
@@ -75,7 +76,10 @@ class PPO():
 
         self.actor = actor
         self.critic = critic
-        self.optim = optim
+        # TODO: whether using one or two optim
+        # self.optim = optim
+        self.actor_optim = actor_optim
+        self.critic_optim = critic_optim
         self.dist_fn = dist_fn
 
         lower_param1, upper_param1, lower_param2, upper_param2 = self.env.get_lower_upper_bound()
@@ -260,7 +264,7 @@ class PPO():
 
     def evaluate(self, batch_obs, param, batch_acts=None):
         if self.add_param:
-            batch_param = param.reshape(-1, 2).repeat(batch_obs.shape[0], 1)
+            batch_param = param.reshape(-1, 2).repeat(batch_obs.shape[0], axis=0)
             batch_param = self.norm_params(batch_param)
             batch_obs_params = np.concatenate((batch_obs, batch_param), axis=1)
         else:

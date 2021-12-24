@@ -52,7 +52,9 @@ def main(args):
         if isinstance(m, th.nn.Linear):
             th.nn.init.zeros_(m.bias)
             m.weight.data.copy_(0.01 * m.weight.data)
-    optim = Adam(list(actor.parameters())+list(critic.parameters()), lr=args.lr)
+    # optim = Adam(list(actor.parameters())+list(critic.parameters()), lr=args.lr)
+    actor_optim = Adam(actor.parameters(), lr=args.lr)
+    critic_optim = Adam(critic.parameters(), lr=args.lr)
     
     def dist(mu, sigma):
         return Independent(Normal(mu, sigma), 1)
@@ -61,7 +63,8 @@ def main(args):
         env=env,
         actor=actor,
         critic=critic,
-        optim=optim,
+        actor_optim=actor_optim,
+        critic_optim=critic_optim,
         dist_fn=dist,
         n_cpu=args.n_cpu,
         eval_k=args.eval_k,
