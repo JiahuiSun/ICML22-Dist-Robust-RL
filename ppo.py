@@ -4,8 +4,6 @@ import numpy as np
 from numba import njit
 import torch as th
 import torch.nn.functional as F
-from torch.optim import Adam
-from torch.distributions import MultivariateNormal
 from tensorboardX import SummaryWriter
 
 from util import EnvParamDist, CircularList
@@ -36,46 +34,52 @@ class PPO():
     def __init__(
         self, 
         env,
-        policy_class,
+        actor,
+        critic,
+        optim,
+        dist_fn,
         n_cpu=4,
-        lr=3e-4,
+        eval_k=2,
+        traj_per_param=1,
         gamma=0.99,
         gae_lambda=0.95,
-        clip=0.2,
-        eval_k=2,
+        vf_coef=0.25,
         block_num=100,
         repeat_per_collect=10,
-        traj_per_param=1,
+        action_scaling=True,
+        norm_adv=True,
+        add_param=True,
+        max_grad_norm=0.5,
+        clip=0.2,
         save_freq=10,
         log_freq=1
     ):
         self.env = env
         self.n_cpu = n_cpu
         self.eval_k = eval_k
+        self.traj_per_param = traj_per_param
         self.block_num = block_num
-        self.obs_dim = env.observation_space.shape[0]
-        self.act_dim = env.action_space.shape[0]
-        self.lr = lr
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip = clip
+        self.vf_coef = vf_coef
         self.repeat_per_collect = repeat_per_collect
-        self.traj_per_param = traj_per_param
         self.save_freq = save_freq
         self.log_freq = log_freq
 
+        self.action_space = env.action_space
+        self.action_scaling = action_scaling
+        self.norm_adv = norm_adv
+        self.add_param = add_param
+        self.max_grad_norm = max_grad_norm
+
+        self.actor = actor
+        self.critic = critic
+        self.optim = optim
+        self.dist_fn = dist_fn
+
         lower_param1, upper_param1, lower_param2, upper_param2 = self.env.get_lower_upper_bound()
         self.env_para_dist = EnvParamDist(param_start=[lower_param1, lower_param2], param_end=[upper_param1, upper_param2])
-
-        self.actor = policy_class(self.obs_dim, self.act_dim)
-        # self.critic = policy_class(self.obs_dim + 2, 1)
-        self.critic = policy_class(self.obs_dim, 1)
-        self.actor_optim = Adam(self.actor.parameters(), lr=self.lr)
-        self.critic_optim = Adam(self.critic.parameters(), lr=self.lr)
-
-        # Initialize the covariance matrix used to query the actor for actions
-        self.cov_var = th.full(size=(self.act_dim,), fill_value=0.5)
-        self.cov_mat = th.diag(self.cov_var)
 
     def learn(self, total_iters=1000):
         st_time = time.time()
@@ -187,7 +191,8 @@ class PPO():
         self.env.set_params(env_idx_param)
         obs = self.env.reset()
         while True:
-            actions, log_probs = self.get_action(obs)
+            params = np.array(self.env.get_params())
+            actions, log_probs = self.get_action(obs, params)
             obs_next, rewards, dones, infos = self.env.step(actions)
             
             for idx, param in env_idx_param.items():
@@ -196,7 +201,7 @@ class PPO():
                 buffer[tuple(param)]['log_prob'].append(log_probs[idx])
                 buffer[tuple(param)]['rew'].append(rewards[idx])  # 这里的reward已经被归一化了
                 buffer[tuple(param)]['done'].append(dones[idx])
-                buffer[tuple(param)]['obs_next'].append(obs_next[idx])
+                buffer[tuple(param)]['obs_next'].append(obs_next[idx].copy())
                 buffer[tuple(param)]['real_rew'].append(infos[idx])
 
             if any(dones):
@@ -226,30 +231,46 @@ class PPO():
             data['length'] = (max(done_idx)+1) / len(done_idx)
         return buffer
 
-    def get_action(self, obs):
+    def get_action(self, obs, params):
+        if self.add_param:
+            params = self.norm_params(params)
+            obs_params = np.concatenate((obs, params), axis=1)
+        else:
+            obs_params = obs
         with th.no_grad():
-            mean = self.actor(obs)
-            dist = MultivariateNormal(mean, self.cov_mat)
+            mu, sigma = self.actor(obs_params)
+            dist = self.dist_fn(mu, sigma)
             action = dist.sample()
             log_prob = dist.log_prob(action)
-        return action.numpy(), log_prob
+        return action.numpy(), log_prob.numpy()
+
+    def norm_params(self, params):
+        # input: Nx2, output: Nx2
+        mu, sigma = self.env_para_dist.mu, self.env_para_dist.sigma
+        return (params - mu) / sigma
+
+    def map_action(self, act):
+        act = np.clip(act, -1.0, 1.0)
+        if self.action_scaling:
+            assert np.min(act) >= -1.0 and np.max(act) <= 1.0, \
+                "action scaling only accepts raw action range = [-1, 1]"
+            low, high = self.action_space.low, self.action_space.high
+            act = low + (high - low) * (act + 1.0) / 2.0  # type: ignore
+        return act
 
     def evaluate(self, batch_obs, param, batch_acts=None):
-        if isinstance(batch_obs, np.ndarray):
-            batch_obs = th.tensor(batch_obs, dtype=th.float32)
-        if isinstance(param, np.ndarray):
-            param = th.tensor(param, dtype=th.float32)
-        param = param.repeat(batch_obs.shape[0], 1)
-        batch_obs1 = th.cat((batch_obs, param), dim=1)
-        # vs = self.critic(batch_obs1).squeeze()
-        vs = self.critic(batch_obs).squeeze()
-        
+        if self.add_param:
+            batch_param = param.reshape(-1, 2).repeat(batch_obs.shape[0], 1)
+            batch_param = self.norm_params(batch_param)
+            batch_obs_params = np.concatenate((batch_obs, batch_param), axis=1)
+        else:
+            batch_obs_params = batch_obs
+        vs = self.critic(batch_obs_params).squeeze()
         log_probs = None
         if batch_acts is not None:
             if isinstance(batch_acts, np.ndarray):
                 batch_acts = th.tensor(batch_acts, dtype=th.float32)
-            mean = self.actor(batch_obs)
-            dist = MultivariateNormal(mean, self.cov_mat)
+            mu, sigma = self.actor(batch_obs_params)
+            dist = self.dist_fn(mu, sigma)
             log_probs = dist.log_prob(batch_acts)
-
         return vs, log_probs

@@ -48,12 +48,3 @@ class VecNormalize(VecEnvWrapper):
         self.ret[env_idx] = 0.0
         obs_bn = self.venv.reset(env_idx)
         return self._obfilt(obs_bn)
-
-    def get_lower_upper_bound(self):
-        return self.venv.get_lower_upper_bound()
-
-    def get_params(self):
-        return self.venv.get_params()
-
-    def set_params(self, env_idx_param={}):
-        self.venv.set_params(env_idx_param)

@@ -35,11 +35,11 @@ class EnvParamDist():
     def __init__(self, param_start=[0], param_end=[10], dist_type='gaussian'):
         self.start = np.array(param_start)
         self.end = np.array(param_end)
+        self.mu = (self.start + self.end) / 2
+        self.sigma = (self.mu - self.start) / 3
+        cov = np.diag(self.sigma)**2
         if dist_type == 'gaussian':
-            mu = (self.start + self.end) / 2
-            sigma = (mu - self.start) / 3
-            cov = np.diag(sigma)**2
-            self.param_dist = multivariate_normal(mean=mu, cov=cov)
+            self.param_dist = multivariate_normal(mean=self.mu, cov=cov)
         elif dist_type == 'uniform':
             self.param_dist = uniform(loc=self.start, scale=self.end-self.start)
         else:
@@ -75,7 +75,7 @@ class EnvParamDist():
 
     def sample(self, left, right, size=(1, 2)):
         # size = num x k
-        tmp = np.random.uniform(left,right)
+        tmp = np.random.uniform(left, right)
         min_param = left.reshape(1, -1).repeat(size[0], axis=0)
         max_param = right.reshape(1, -1).repeat(size[0], axis=0)
         return np.clip(tmp, min_param, max_param)

@@ -1,25 +1,50 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 import numpy as np
 
 
-class FeedForwardNN(nn.Module):
-	def __init__(self, in_dim, out_dim):
-		super(FeedForwardNN, self).__init__()
-		self.layer1 = nn.Linear(in_dim, 64)
-		self.layer2 = nn.Linear(64, 64)
-		self.layer3 = nn.Linear(64, out_dim)
+class Critic(nn.Module):
+	def __init__(self, input_dim, output_dim, hidden_size=64):
+		super(Critic, self).__init__()
+		self.input_dim = input_dim
+		self.output_dim = output_dim
+		self.net = nn.Sequential(
+			nn.Linear(input_dim, 64),
+			nn.Tanh(),
+			nn.Linear(64, 64),
+			nn.Tanh(),
+			nn.Linear(64, output_dim)
+		)
 
 	def forward(self, obs):
-		# Convert observation to tensor if it's a numpy array
 		if isinstance(obs, np.ndarray):
 			obs = torch.tensor(obs, dtype=torch.float32)
+		logits = self.net(obs)
+		return logits
 
-		# activation1 = F.relu(self.layer1(obs))
-		# activation2 = F.relu(self.layer2(activation1))
-		activation1 = torch.tanh(self.layer1(obs))
-		activation2 = torch.tanh(self.layer2(activation1))
-		output = self.layer3(activation2)
 
-		return output
+class Actor(nn.Module):
+	def __init__(self, input_dim, output_dim, hidden_size=64):
+		super(Actor, self).__init__()
+		self.input_dim = input_dim
+		self.output_dim = output_dim
+		self.net = nn.Sequential(
+			nn.Linear(input_dim, 64),
+			nn.Tanh(),
+			nn.Linear(64, 64),
+			nn.Tanh()
+		)
+		self.mu = nn.Linear(64, output_dim)
+		self.sigma = nn.Parameter(torch.zeros(output_dim, 1))
+		torch.nn.init.constant_(self.sigma, -0.5)
+
+	def forward(self, obs):
+		"""Mapping: obs -> logits -> (mu, sigma)."""
+		if isinstance(obs, np.ndarray):
+			obs = torch.tensor(obs, dtype=torch.float32)
+		logits = self.net(obs)
+		mu = self.mu(logits)
+		shape = [1] * len(mu.shape)
+		shape[1] = -1
+		sigma = (self.sigma.view(shape) + torch.zeros_like(mu)).exp()
+		return mu, sigma
