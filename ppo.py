@@ -76,7 +76,7 @@ class PPO():
 
         self.actor = actor
         self.critic = critic
-        # TODO: whether using one or two optim
+        # NOTE: whether using one or two optim
         # self.optim = optim
         self.actor_optim = actor_optim
         self.critic_optim = critic_optim
@@ -112,7 +112,8 @@ class PPO():
                     # Calculate loss for actor
                     adv = th.tensor(adv_numpy, dtype=th.float32)
                     old_log_probs = th.tensor(data['log_prob'], dtype=th.float32)
-                    adv = (adv - adv.mean()) / adv.std()
+                    if self.norm_adv:
+                        adv = (adv - adv.mean()) / adv.std()
                     ratios = th.exp(curr_log_probs - old_log_probs)
                     surr1 = ratios * adv
                     surr2 = th.clamp(ratios, 1 - self.clip, 1 + self.clip) * adv
@@ -139,10 +140,20 @@ class PPO():
 
                 self.actor_optim.zero_grad()
                 total_actor_loss.backward()
+                if self.max_grad_norm:  # clip large gradient
+                    th.nn.utils.clip_grad_norm_(
+                        self.actor.parameters(), 
+                        max_norm=self.max_grad_norm
+                    )
                 self.actor_optim.step()
 
                 self.critic_optim.zero_grad()
                 total_critic_loss.backward()
+                if self.max_grad_norm:  # clip large gradient
+                    th.nn.utils.clip_grad_norm_(
+                        self.critic.parameters(), 
+                        max_norm=self.max_grad_norm
+                    )
                 self.critic_optim.step()
 
                 actor_loss_list.append(total_actor_loss.item())

@@ -103,7 +103,7 @@ if __name__ == '__main__':
     parser.add_argument('--action_scaling', type=bool, default=True)
     parser.add_argument('--norm_adv', type=bool, default=True)
     parser.add_argument('--add_param', type=bool, default=True)
-    parser.add_argument('--max_grad_norm', type=float, default=0.5)
+    parser.add_argument('--max_grad_norm', type=float, default=1.0)
     parser.add_argument('--repeat_per_collect', type=float, default=10)
     parser.add_argument('--log_freq', type=int, default=1)
     parser.add_argument('--save_freq', type=int, default=10)
