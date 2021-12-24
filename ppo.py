@@ -5,10 +5,10 @@ from numba import njit
 import torch as th
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.distributions import MultivariateNormal, Independent, Normal
+from torch.distributions import Independent, Normal
 from tensorboardX import SummaryWriter
 
-from util import EnvParamDist, CircularList
+from util import EnvParamDist
 from network import Actor, Critic
 from baselines import logger
 from baselines.common import explained_variance
@@ -43,7 +43,6 @@ class PPO():
         gae_lambda=0.95,
         clip=0.2,
         vf_coef=0.25,
-        eval_k=2,
         block_num=100,
         repeat_per_collect=10,
         save_freq=10,
@@ -51,7 +50,6 @@ class PPO():
     ):
         self.env = env
         self.n_cpu = n_cpu
-        self.eval_k = eval_k
         self.block_num = block_num
         self.obs_dim = env.observation_space.shape[0]
         self.act_dim = env.action_space.shape[0]
@@ -63,6 +61,11 @@ class PPO():
         self.repeat_per_collect = repeat_per_collect
         self.save_freq = save_freq
         self.log_freq = log_freq
+
+        self.action_space = env.action_space
+        self.action_scaling = True
+        self.norm_adv = True
+        self.max_grad_norm = 0.5
 
         lower_param1, upper_param1, lower_param2, upper_param2 = self.env.get_lower_upper_bound()
         self.env_para_dist = EnvParamDist(param_start=[lower_param1, lower_param2], param_end=[upper_param1, upper_param2])
@@ -80,8 +83,7 @@ class PPO():
                 th.nn.init.zeros_(m.bias)
                 m.weight.data.copy_(0.01 * m.weight.data)
         self.optim = Adam(list(self.actor.parameters())+list(self.critic.parameters()), lr=self.lr)
-
-        # TODO: 修改为parameter，这里按照tianshou的逻辑，是需要自己学的参数
+        
         def dist(mu, sigma):
             return Independent(Normal(mu, sigma), 1)
         self.dist_fn = dist
@@ -92,7 +94,6 @@ class PPO():
         traj_params = [1000, 0.8]
         for T in range(total_iters):
             # 并行sample 100个参数对应的trajectory
-            # TODO: 修改为一整个trajectory，计算GAE，再random mini-batch去update
             buffer_obs, buffer_act, buffer_rew, buffer_done, buffer_log_prob, buffer_obs_next, buffer_real_rew = self.rollout(param=traj_params)
 
             buffer_return = [np.sum(buffer_real_rew[i]) for i in range(self.block_num)]
@@ -122,19 +123,24 @@ class PPO():
                     # Calculate loss for actor
                     adv = th.tensor(adv_numpy, dtype=th.float32)
                     old_log_probs = th.tensor(old_log_probs, dtype=th.float32)
-                    adv = (adv - adv.mean()) / adv.std()
+                    if self.norm_adv:
+                        adv = (adv - adv.mean()) / adv.std()
                     ratios = th.exp(curr_log_probs - old_log_probs)
                     surr1 = ratios * adv
                     surr2 = th.clamp(ratios, 1 - self.clip, 1 + self.clip) * adv
                     actor_loss = -th.min(surr1, surr2).mean()
                     loss = actor_loss + self.vf_coef * critic_loss
 
-                    # TODO: 除了开始的epoch，后面ev很差，都是负的
                     ev = explained_variance(vs_numpy, returns_numpy)
                     ev_list.append(ev)
 
                     self.optim.zero_grad()
                     loss.backward()
+                    if self.max_grad_norm:  # clip large gradient
+                        th.nn.utils.clip_grad_norm_(
+                            list(self.actor.parameters())+list(self.critic.parameters()), 
+                            max_norm=self.max_grad_norm
+                        )
                     self.optim.step()
 
                     actor_loss_list.append(actor_loss.item())
@@ -160,6 +166,7 @@ class PPO():
                 critic_path = os.path.join(logger.get_dir(), f'critic-{T}.pth')
                 th.save(self.actor.state_dict(), actor_path)
                 th.save(self.critic.state_dict(), critic_path)
+        self.env.close()
 
     def rollout(self, param):
         # 就给我一个参数，我给你返回N条trajectory
@@ -180,11 +187,13 @@ class PPO():
         obs = self.env.reset()
         while True:
             actions, log_probs = self.get_action(obs)
-            obs_next, rewards, dones, infos = self.env.step(actions)
-
             mb_obs.append(obs)
             mb_actions.append(actions)
-            mb_log_prob.append(log_probs.numpy())
+            mb_log_prob.append(log_probs)
+
+            action_remap = self.map_action(actions)
+            obs_next, rewards, dones, infos = self.env.step(action_remap)
+            
             mb_rewards.append(rewards)  # 这里的reward已经被归一化了
             mb_dones.append(dones)
             # 这是因为obs_next下面可能会修改
@@ -239,13 +248,19 @@ class PPO():
             dist = self.dist_fn(mu, sigma)
             action = dist.sample()
             log_prob = dist.log_prob(action)
-        return action.numpy(), log_prob
+        return action.numpy(), log_prob.numpy()
+
+    def map_action(self, act):
+        act = np.clip(act, -1.0, 1.0)
+        if self.action_scaling:
+            assert np.min(act) >= -1.0 and np.max(act) <= 1.0, \
+                "action scaling only accepts raw action range = [-1, 1]"
+            low, high = self.action_space.low, self.action_space.high
+            act = low + (high - low) * (act + 1.0) / 2.0  # type: ignore
+        return act
 
     def evaluate(self, batch_obs, batch_acts=None):
-        if isinstance(batch_obs, np.ndarray):
-            batch_obs = th.tensor(batch_obs, dtype=th.float32)
         vs = self.critic(batch_obs).squeeze()
-        
         log_probs = None
         if batch_acts is not None:
             if isinstance(batch_acts, np.ndarray):
@@ -253,5 +268,4 @@ class PPO():
             mu, sigma = self.actor(batch_obs)
             dist = self.dist_fn(mu, sigma)
             log_probs = dist.log_prob(batch_acts)
-
         return vs, log_probs

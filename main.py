@@ -55,7 +55,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("Distribution Robust RL")
     parser.add_argument('--env_id', type=str, default='SunblazeWalker2d-v0')
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--n_cpu', type=int, default=5)
+    parser.add_argument('--n_cpu', type=int, default=20)
     parser.add_argument('--actor_model', type=str, default='')
     parser.add_argument('--critic_model', type=str, default='')
     parser.add_argument('--output', type=str, default='output')
