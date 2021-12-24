@@ -8,7 +8,6 @@ from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines import logger
 from ppo import PPO
-from network import FeedForwardNN
 from util import set_global_seed
 
 
@@ -35,15 +34,13 @@ def main(args):
 
     model = PPO(
         env=env,
-        policy_class=FeedForwardNN,
         n_cpu=args.n_cpu,
         lr=args.lr,
         gamma=args.gamma,
         gae_lambda=args.gae_lambda,
-        eval_k=args.eval_k,
+        vf_coef=args.vf_coef,
         block_num=args.block_num,
         repeat_per_collect=args.repeat_per_collect,
-        traj_per_param=args.traj_per_param
     )
 
     if args.actor_model != '' and args.critic_model != '':
@@ -58,20 +55,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("Distribution Robust RL")
     parser.add_argument('--env_id', type=str, default='SunblazeWalker2d-v0')
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--n_cpu', type=int, default=20)
+    parser.add_argument('--n_cpu', type=int, default=5)
     parser.add_argument('--actor_model', type=str, default='')
     parser.add_argument('--critic_model', type=str, default='')
     parser.add_argument('--output', type=str, default='output')
 
-    parser.add_argument('--block_num', dest='block_num', type=int, default=100)
-    parser.add_argument('--eval_k', dest='eval_k', type=int, default=2)
+    parser.add_argument('--block_num', type=int, default=100)
+    parser.add_argument('--vf_coef', type=int, default=0.25)
     parser.add_argument('--clip', type=float, default=0.2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--gae_lambda', type=float, default=0.95)
     parser.add_argument('--lr', type=float, default=3e-4)
-    parser.add_argument('--total_iters', type=int, default=1000)
+    parser.add_argument('--total_iters', type=int, default=100)
     parser.add_argument('--repeat_per_collect', type=float, default=10)
-    parser.add_argument('--traj_per_param', type=float, default=1)
     args = parser.parse_args()
 
     main(args)
