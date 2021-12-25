@@ -209,7 +209,8 @@ class PPO():
         while True:
             params = np.array(self.env.get_params())
             actions, log_probs = self.get_action(obs, params)
-            obs_next, rewards, dones, infos = self.env.step(actions)
+            mapped_actions = self.map_action(actions)
+            obs_next, rewards, dones, infos = self.env.step(mapped_actions)
             
             for idx, param in env_idx_param.items():
                 buffer[tuple(param)]['obs'].append(obs[idx])
