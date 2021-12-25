@@ -188,6 +188,7 @@ class PPO():
                 critic_path = os.path.join(logger.get_dir(), f'critic-{T}.pth')
                 th.save(self.actor.state_dict(), actor_path)
                 th.save(self.critic.state_dict(), critic_path)
+        self.env.close()
 
     def rollout(self, traj_params=[]):
         # 每个参数收集若干条trajectory
