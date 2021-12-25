@@ -17,7 +17,7 @@ from util import set_global_seed
 def main(args):
     # Configure logger
     logid = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    log_dir = os.path.join(args.output, args.env_id, 'DistRobustRL', logid)
+    log_dir = os.path.join(args.output, args.env_id, 'PPO', logid)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     logger.reset()
