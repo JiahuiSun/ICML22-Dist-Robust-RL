@@ -1,3 +1,4 @@
+import pickle
 import time
 import os
 import numpy as np
@@ -89,6 +90,7 @@ class PPO():
         st_time = time.time()
         writer = SummaryWriter(logger.get_dir())
         for T in range(total_iters):
+            st1 = time.time()
             # 一次性返回100个参数及其概率
             traj_params, param_percents = self.env_para_dist.set_division(self.block_num)
             # 并行sample 100个参数对应的trajectory
@@ -111,6 +113,7 @@ class PPO():
             traj_length = np.array([traj['length'] for traj in seq_dict_list])
             traj_weight_dict = {traj['param']: traj['weight'] for traj in seq_dict_list}
             traj_weight = np.array([traj['weight'] for traj in seq_dict_list])
+            st2 = time.time()
 
             # training
             actor_loss_list, critic_loss_list, ev_list = [], [], []
@@ -164,6 +167,7 @@ class PPO():
                 actor_loss_list.append(total_actor_loss.item())
                 critic_loss_list.append(total_critic_loss.item())
 
+            end_time = time.time()
             # log everything
             writer.add_scalar('avg_return', np.mean(traj_return), T)
             writer.add_scalar('wst10_return', np.mean(traj_return[:len(traj_return)//10]), T)
@@ -173,6 +177,9 @@ class PPO():
             writer.add_scalar('actor_loss', np.mean(actor_loss_list), T)
             writer.add_scalar('critic_loss', np.mean(critic_loss_list), T)
             if (T+1) % self.log_freq == 0:
+                logger.logkv('time_rollout', st2-st1)
+                logger.logkv('time_training', end_time-st2)
+                logger.logkv('time_one_epoch', end_time-st1)
                 logger.logkv('time_elapsed', time.time()-st_time)
                 logger.logkv('epoch', T)
                 logger.logkv('avg_return', np.mean(traj_return))
@@ -188,6 +195,10 @@ class PPO():
                 critic_path = os.path.join(logger.get_dir(), f'critic-{T}.pth')
                 th.save(self.actor.state_dict(), actor_path)
                 th.save(self.critic.state_dict(), critic_path)
+                traj_info_path = os.path.join(logger.get_dir(), f'seq_dict_list-{T}.pkl')
+                with open(traj_info_path, 'wb') as fout:
+                    pickle.dump(seq_dict_list, fout)
+
         self.env.close()
 
     def rollout(self, traj_params=[]):
