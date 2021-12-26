@@ -93,10 +93,29 @@ class PPO():
             traj_params, param_percents = self.env_para_dist.set_division(self.block_num)
             # 并行sample 100个参数对应的trajectory
             buffer = self.rollout(traj_params=traj_params)
- 
-            actor_loss_list, critic_loss_list = [], []
+            # 根据每个参数的return从小到大排序，并计算weight
+            seq_dict_list = [
+                {
+                    'param': param, 'return': data['return'], 
+                    'length': data['length'], 'percent': param_percents[param]
+                } 
+                for param, data in buffer.items()
+            ]
+            seq_dict_list = sorted(seq_dict_list, key=lambda e: e['return'])
+            x = 0
+            for j in range(self.block_num):
+                y = x + seq_dict_list[j]['percent']
+                seq_dict_list[j]['weight'] = (1-x)**self.eval_k - (1-y)**self.eval_k
+                x = y
+            traj_return = np.array([traj['return'] for traj in seq_dict_list])
+            traj_length = np.array([traj['length'] for traj in seq_dict_list])
+            traj_weight_dict = {traj['param']: traj['weight'] for traj in seq_dict_list}
+            traj_weight = np.array([traj['weight'] for traj in seq_dict_list])
+
+            # training
+            actor_loss_list, critic_loss_list, ev_list = [], [], []
             for _ in range(self.repeat_per_collect):
-                seq_dict_list = []
+                total_actor_loss, total_critic_loss = 0, 0
                 for param, data in buffer.items():
                     # Calculate loss for critic
                     vs, curr_log_probs = self.evaluate(data['obs'], np.array(param), data['act'])
@@ -119,24 +138,10 @@ class PPO():
                     surr2 = th.clamp(ratios, 1 - self.clip, 1 + self.clip) * adv
                     actor_loss = -th.min(surr1, surr2).mean()
                     
-                    tmp = {'param': param}
-                    tmp['critic_loss'] = critic_loss
-                    tmp['actor_loss'] = actor_loss
-                    tmp['return'] = data['return']
-                    tmp['length'] = data['length']
-                    tmp['percent'] = param_percents[param]
-                    tmp['ev'] = explained_variance(vs_numpy, returns_numpy)
-                    seq_dict_list.append(tmp)
-
-                seq_dict_list = sorted(seq_dict_list, key=lambda e: e['return'])
-                x = 0
-                total_actor_loss, total_critic_loss = 0, 0
-                for j in range(self.block_num):
-                    y = x + seq_dict_list[j]['percent']
-                    seq_dict_list[j]['weight'] = (1-x)**self.eval_k - (1-y)**self.eval_k
-                    total_actor_loss += seq_dict_list[j]['weight'] * seq_dict_list[j]['actor_loss']
-                    total_critic_loss += seq_dict_list[j]['critic_loss'] / self.block_num
-                    x = y
+                    total_actor_loss += traj_weight_dict[param] * actor_loss
+                    total_critic_loss += 1 / self.block_num * critic_loss
+                    ev = explained_variance(vs_numpy, returns_numpy)
+                    ev_list.append(ev)
 
                 self.actor_optim.zero_grad()
                 total_actor_loss.backward()
@@ -160,16 +165,11 @@ class PPO():
                 critic_loss_list.append(total_critic_loss.item())
 
             # log everything
-            traj_return = np.array([traj['return'] for traj in seq_dict_list])
-            traj_length = np.array([traj['length'] for traj in seq_dict_list])
-            traj_weight = np.array([traj['weight'] for traj in seq_dict_list])
-            traj_ev = np.array([traj['ev'] for traj in seq_dict_list])
-            # tensorboard
             writer.add_scalar('avg_return', np.mean(traj_return), T)
             writer.add_scalar('wst10_return', np.mean(traj_return[:len(traj_return)//10]), T)
             writer.add_scalar('avg_length', np.mean(traj_length), T)
             writer.add_scalar('E_bar', np.sum(traj_return*traj_weight), T)
-            writer.add_scalar('ev', np.mean(traj_ev), T)
+            writer.add_scalar('ev', np.mean(ev_list), T)
             writer.add_scalar('actor_loss', np.mean(actor_loss_list), T)
             writer.add_scalar('critic_loss', np.mean(critic_loss_list), T)
             if (T+1) % self.log_freq == 0:
@@ -179,7 +179,7 @@ class PPO():
                 logger.logkv('wst10_return', np.mean(traj_return[:len(traj_return)//10]))
                 logger.logkv('avg_length', np.mean(traj_length))
                 logger.logkv('E_bar', np.sum(traj_return*traj_weight))
-                logger.logkv('ev', np.mean(traj_ev))
+                logger.logkv('ev', np.mean(ev_list))
                 logger.logkv('actor_loss', np.mean(actor_loss_list))
                 logger.logkv('critic_loss', np.mean(critic_loss_list))
                 logger.dumpkvs()
