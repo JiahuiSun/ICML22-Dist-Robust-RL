@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--gae_lambda', type=float, default=0.95)
     parser.add_argument('--lr', type=float, default=3e-4)
-    parser.add_argument('--total_iters', type=int, default=100)
+    parser.add_argument('--total_iters', type=int, default=1000)
     parser.add_argument('--action_scaling', type=int, default=1, help='whether scale action')
     parser.add_argument('--norm_adv', type=int, default=1, help='whether norm adv')
     parser.add_argument('--add_param', type=int, default=1, help='whether add param')
