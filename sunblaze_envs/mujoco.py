@@ -90,7 +90,7 @@ class ModifiableRoboschoolReacher(RoboschoolReacher, RoboschoolXMLModifierMixin,
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_BODY_SIZE, RANDOM_LOWER_BODY_LENGTH],
                               param_end=[RANDOM_UPPER_BODY_SIZE, RANDOM_UPPER_BODY_LENGTH])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('reacher.xml') as tree:
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('fromto', "0 0 0 " + str(self.length) + " 0 0")
@@ -100,7 +100,12 @@ class ModifiableRoboschoolReacher(RoboschoolReacher, RoboschoolXMLModifierMixin,
                 elem.set('pos', str(self.length) + " 0 0")
             for elem in tree.iterfind('worldbody/body/body/geom'):
                 elem.set('size', str(self.size))
-        return super(ModifiableRoboschoolReacher, self)._reset()
+        return super(ModifiableRoboschoolReacher, self).reset()
+    
+    def set_envparam(self, new_size, new_length):
+        self.size = new_size
+        self.length = new_length
+        return True
 
     @property
     def parameters(self):
@@ -113,15 +118,15 @@ class ModifiableRoboschoolReacher(RoboschoolReacher, RoboschoolXMLModifierMixin,
 
 
 class UniformReacher(ModifiableRoboschoolReacher):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformReacher, self)._reset()
+        return super(UniformReacher, self).reset()
 
 
 class GaussianReacher(ModifiableRoboschoolReacher):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianReacher, self)._reset() 
+        return super(GaussianReacher, self).reset() 
 
 
 # ============== InvertedPendulum ===============
@@ -145,14 +150,19 @@ class ModifiableRoboschoolInvertedPendulum(RoboschoolInvertedPendulum, Roboschoo
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_POLE_LENGTH, RANDOM_LOWER_CART_SIZE],
                               param_end=[RANDOM_UPPER_POLE_LENGTH, RANDOM_UPPER_CART_SIZE])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('inverted_pendulum.xml') as tree:
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('size', str(self.cartsize) + ' ' + str(self.cartsize))
             for elem in tree.iterfind('worldbody/body/body/geom'):
                 elem.set('fromto', "0 0 0 0.001 0 " + str(self.length))
-        return super(ModifiableRoboschoolInvertedPendulum, self)._reset()
+        return super(ModifiableRoboschoolInvertedPendulum, self).reset()
     
+    def set_envparam(self, new_size, new_length):
+        self.size = new_size
+        self.length = new_length
+        return True
+
     @property
     def parameters(self):
         return [self.length, self.cartsize]
@@ -164,15 +174,15 @@ class ModifiableRoboschoolInvertedPendulum(RoboschoolInvertedPendulum, Roboschoo
 
 
 class UniformInvertedPendulum(ModifiableRoboschoolInvertedPendulum):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.length, self.cartsize = self.sampler.uniform_sample().squeeze()
-        return super(UniformInvertedPendulum, self)._reset()
+        return super(UniformInvertedPendulum, self).reset()
 
 
 class GaussianInvertedPendulum(ModifiableRoboschoolInvertedPendulum):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.length, self.cartsize = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianInvertedPendulum, self)._reset() 
+        return super(GaussianInvertedPendulum, self).reset() 
 
 
 # =========== Ant ================
@@ -196,13 +206,18 @@ class ModifiableRoboschoolAnt(RoboschoolAnt, RoboschoolXMLModifierMixin,  Robosc
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_DENSITY, RANDOM_LOWER_FRICTION],
                               param_end=[RANDOM_UPPER_DENSITY, RANDOM_UPPER_FRICTION])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('ant.xml') as tree:
             for elem in tree.iterfind('default/geom'):
                 elem.set('density', str(self.density))
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
-        return super(ModifiableRoboschoolAnt, self)._reset()
+        return super(ModifiableRoboschoolAnt, self).reset()
+
+    def set_envparam(self, new_density, new_friction):
+        self.density = new_density
+        self.friction = new_friction
+        return True
 
     @property
     def parameters(self):
@@ -215,15 +230,15 @@ class ModifiableRoboschoolAnt(RoboschoolAnt, RoboschoolXMLModifierMixin,  Robosc
 
 
 class UniformAnt(ModifiableRoboschoolAnt):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformAnt, self)._reset()
+        return super(UniformAnt, self).reset()
 
 
 class GaussianAnt(ModifiableRoboschoolAnt):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianAnt, self)._reset()     
+        return super(GaussianAnt, self).reset()     
 
 
 class RandomNormalFDAnt(ModifiableRoboschoolAnt):
@@ -239,10 +254,10 @@ class RandomNormalFDAnt(ModifiableRoboschoolAnt):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_env()
-        return super(RandomNormalFDAnt, self)._reset(new)
+        return super(RandomNormalFDAnt, self).reset(new)
 
     @property
     def parameters(self):
@@ -281,10 +296,10 @@ class RandomNormalFootAnt(ModifiableRoboschoolAnt):
                     elem.set('fromto', "0.0 0.0 0.0 " +
                              str(self.front_right_foot) + " 0.4 0.0")
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_env()
-        return super(RandomNormalFootAnt, self)._reset(new)
+        return super(RandomNormalFootAnt, self).reset(new)
 
     @property
     def parameters(self):
@@ -310,13 +325,18 @@ class ModifiableRoboschoolHumanoid(RoboschoolHumanoid, RoboschoolXMLModifierMixi
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_DENSITY, RANDOM_LOWER_FRICTION],
                               param_end=[RANDOM_UPPER_DENSITY, RANDOM_UPPER_FRICTION])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('humanoid_symmetric.xml') as tree:
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
-        return super(ModifiableRoboschoolHumanoid, self)._reset()
+        return super(ModifiableRoboschoolHumanoid, self).reset()
+
+    def set_envparam(self, new_density, new_friction):
+        self.density = new_density
+        self.friction = new_friction
+        return True
 
     @property
     def parameters(self):
@@ -329,15 +349,15 @@ class ModifiableRoboschoolHumanoid(RoboschoolHumanoid, RoboschoolXMLModifierMixi
 
 
 class UniformHumanoid(ModifiableRoboschoolHumanoid):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformHumanoid, self)._reset()
+        return super(UniformHumanoid, self).reset()
 
 
 class GaussianHumanoid(ModifiableRoboschoolHumanoid):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianHumanoid, self)._reset()
+        return super(GaussianHumanoid, self).reset()
 
 
 class RandomFrictionHumanoid(ModifiableRoboschoolHumanoid):
@@ -353,10 +373,10 @@ class RandomFrictionHumanoid(ModifiableRoboschoolHumanoid):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_env()
-        return super(RandomFrictionHumanoid, self)._reset(new)
+        return super(RandomFrictionHumanoid, self).reset(new)
 
     @property
     def parameters(self):
@@ -375,14 +395,14 @@ class RandomFrictionHumanoidEval(ModifiableRoboschoolHumanoid):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             with self.modify_xml('humanoid_symmetric.xml') as tree:
                 # for elem in tree.iterfind('worldbody/body/geom'):
                 #     elem.set('density', str(self.density))
                 for elem in tree.iterfind('default/geom'):
                     elem.set('friction', str(self.friction) + ' .1 .1')
-        return super(RandomFrictionHumanoidEval, self)._reset(new)
+        return super(RandomFrictionHumanoidEval, self).reset(new)
 
     @property
     def parameters(self):
@@ -436,15 +456,15 @@ class ModifiableRoboschoolWalker2d(RoboschoolWalker2d, RoboschoolXMLModifierMixi
 
 
 class UniformWalker2d(ModifiableRoboschoolWalker2d):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformWalker2d, self)._reset()
+        return super(UniformWalker2d, self).reset()
 
 
 class GaussianWalker2d(ModifiableRoboschoolWalker2d):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianWalker2d, self)._reset()
+        return super(GaussianWalker2d, self).reset()
 
 
 # ============== Half Cheetah =================
@@ -468,17 +488,18 @@ class ModifiableRoboschoolHalfCheetah(RoboschoolHalfCheetah, RoboschoolXMLModifi
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_DENSITY, RANDOM_LOWER_FRICTION],
                               param_end=[RANDOM_UPPER_DENSITY, RANDOM_UPPER_FRICTION])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('half_cheetah.xml') as tree:
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
-        return super(ModifiableRoboschoolHalfCheetah, self)._reset()
+        return super(ModifiableRoboschoolHalfCheetah, self).reset()
 
     def set_envparam(self, new_density, new_friction):
         self.density = new_density
         self.friction = new_friction
+        return True
 
     @property
     def parameters(self):
@@ -491,15 +512,15 @@ class ModifiableRoboschoolHalfCheetah(RoboschoolHalfCheetah, RoboschoolXMLModifi
 
 
 class UniformHalfCheetah(ModifiableRoboschoolHalfCheetah):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformHalfCheetah, self)._reset()
+        return super(UniformHalfCheetah, self).reset()
 
 
 class GaussianHalfCheetah(ModifiableRoboschoolHalfCheetah):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianHalfCheetah, self)._reset()
+        return super(GaussianHalfCheetah, self).reset()
  
 
 class StrongHalfCheetah(ModifiableRoboschoolHalfCheetah):
@@ -531,10 +552,10 @@ class RandomStrongHalfCheetah(ModifiableRoboschoolHalfCheetah):
         self.power = self.np_random.uniform(
             self.RANDOM_LOWER_POWER, self.RANDOM_UPPER_POWER)
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_power()
-        return super(RandomStrongHalfCheetah, self)._reset(new)
+        return super(RandomStrongHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -548,10 +569,10 @@ class RandomWeakHalfCheetah(ModifiableRoboschoolHalfCheetah):
         self.power = uniform_exclude_inner(self.np_random.uniform, self.EXTREME_LOWER_POWER, self.EXTREME_UPPER_POWER,
                                            self.RANDOM_LOWER_POWER, self.EXTREME_UPPER_POWER)
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_power()
-        return super(RandomWeakHalfCheetah, self)._reset(new)
+        return super(RandomWeakHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -602,10 +623,10 @@ class RandomHeavyTorsoHalfCheetah(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_mass()
-        return super(RandomHeavyTorsoHalfCheetah, self)._reset(new)
+        return super(RandomHeavyTorsoHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -622,10 +643,10 @@ class RandomLightTorsoHalfCheetah(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_mass()
-        return super(RandomLightTorsoHalfCheetah, self)._reset(new)
+        return super(RandomLightTorsoHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -676,10 +697,10 @@ class RandomRoughJointsHalfCheetah(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomRoughJointsHalfCheetah, self)._reset(new)
+        return super(RandomRoughJointsHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -696,10 +717,10 @@ class RandomSlipperyJointsHalfCheetah(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomSlipperyJointsHalfCheetah, self)._reset(new)
+        return super(RandomSlipperyJointsHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -719,7 +740,7 @@ class RandomNormalHalfcheetahEvaluate(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             # self.randomize_env()
             print('==============in reset ==========')
@@ -731,7 +752,7 @@ class RandomNormalHalfcheetahEvaluate(ModifiableRoboschoolHalfCheetah):
                 for elem in tree.iterfind('default/geom'):
                     elem.set('friction', str(self.friction) + ' .1 .1')
 
-        return super(RandomNormalHalfcheetahEvaluate, self)._reset(new)
+        return super(RandomNormalHalfcheetahEvaluate, self).reset(new)
 
     @property
     def parameters(self):
@@ -766,10 +787,10 @@ class RandomExtremeHalfCheetah(ModifiableRoboschoolHalfCheetah):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_env()
-        return super(RandomExtremeHalfCheetah, self)._reset(new)
+        return super(RandomExtremeHalfCheetah, self).reset(new)
 
     @property
     def parameters(self):
@@ -800,13 +821,18 @@ class ModifiableRoboschoolHopper(RoboschoolHopper, RoboschoolXMLModifierMixin,  
     sampler = EnvParamSampler(param_start=[RANDOM_LOWER_DENSITY, RANDOM_LOWER_FRICTION],
                               param_end=[RANDOM_UPPER_DENSITY, RANDOM_UPPER_FRICTION])
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         with self.modify_xml('hopper.xml') as tree:
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
-        return super(ModifiableRoboschoolHopper, self)._reset()
+        return super(ModifiableRoboschoolHopper, self).reset()
+
+    def set_envparam(self, new_density, new_friction):
+        self.density = new_density
+        self.friction = new_friction
+        return True
 
     @property
     def parameters(self):
@@ -819,15 +845,15 @@ class ModifiableRoboschoolHopper(RoboschoolHopper, RoboschoolXMLModifierMixin,  
 
 
 class UniformHopper(ModifiableRoboschoolHopper):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.uniform_sample().squeeze()
-        return super(UniformHopper, self)._reset()
+        return super(UniformHopper, self).reset()
 
 
 class GaussianHopper(ModifiableRoboschoolHopper):
-    def _reset(self, new=True):
+    def reset(self, new=True):
         self.density, self.friction = self.sampler.gaussian_sample().squeeze()
-        return super(GaussianHopper, self)._reset()
+        return super(GaussianHopper, self).reset()
 
 
 class StrongHopper(ModifiableRoboschoolHopper):
@@ -859,10 +885,10 @@ class RandomStrongHopper(ModifiableRoboschoolHopper):
         self.power = self.np_random.uniform(
             self.RANDOM_LOWER_POWER, self.RANDOM_UPPER_POWER)
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_power()
-        return super(RandomStrongHopper, self)._reset(new)
+        return super(RandomStrongHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -876,10 +902,10 @@ class RandomWeakHopper(ModifiableRoboschoolHopper):
         self.power = uniform_exclude_inner(self.np_random.uniform, self.EXTREME_LOWER_POWER, self.EXTREME_UPPER_POWER,
                                            self.RANDOM_LOWER_POWER, self.RANDOM_UPPER_POWER)
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_power()
-        return super(RandomWeakHopper, self)._reset(new)
+        return super(RandomWeakHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -930,10 +956,10 @@ class RandomHeavyTorsoHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_mass()
-        return super(RandomHeavyTorsoHopper, self)._reset(new)
+        return super(RandomHeavyTorsoHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -950,10 +976,10 @@ class RandomLightTorsoHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('worldbody/body/geom'):
                 elem.set('density', str(self.density))
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_mass()
-        return super(RandomLightTorsoHopper, self)._reset(new)
+        return super(RandomLightTorsoHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -1004,10 +1030,10 @@ class RandomRoughJointsHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomRoughJointsHopper, self)._reset(new)
+        return super(RandomRoughJointsHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -1024,10 +1050,10 @@ class RandomSlipperyJointsHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomSlipperyJointsHopper, self)._reset(new)
+        return super(RandomSlipperyJointsHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -1044,10 +1070,10 @@ class RandomSlipperyJointsHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomSlipperyJointsHopper, self)._reset(new)
+        return super(RandomSlipperyJointsHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -1065,10 +1091,10 @@ class RandomExtremeSlipperyJointsHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_friction()
-        return super(RandomExtremeSlipperyJointsHopper, self)._reset(new)
+        return super(RandomExtremeSlipperyJointsHopper, self).reset(new)
 
     @property
     def parameters(self):
@@ -1085,13 +1111,13 @@ class RandomExtremeSlipperyJointsHopperEval(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             with self.modify_xml('hopper.xml') as tree:
                 for elem in tree.iterfind('default/geom'):
                     elem.set('friction', str(self.friction) + ' .1 .1')
 
-        return super(RandomExtremeSlipperyJointsHopperEval, self)._reset(new)
+        return super(RandomExtremeSlipperyJointsHopperEval, self).reset(new)
 
     @property
     def parameters(self):
@@ -1112,7 +1138,7 @@ class RandomNormalHopperEvaluate(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             # self.randomize_env()
             print('==============in reset ==========')
@@ -1124,7 +1150,7 @@ class RandomNormalHopperEvaluate(ModifiableRoboschoolHopper):
                 for elem in tree.iterfind('default/geom'):
                     elem.set('friction', str(self.friction) + ' .1 .1')
 
-        return super(RandomNormalHopperEvaluate, self)._reset(new)
+        return super(RandomNormalHopperEvaluate, self).reset(new)
 
     @property
     def parameters(self):
@@ -1159,10 +1185,10 @@ class RandomExtremeHopper(ModifiableRoboschoolHopper):
             for elem in tree.iterfind('default/geom'):
                 elem.set('friction', str(self.friction) + ' .1 .1')
 
-    def _reset(self, new=True):
+    def reset(self, new=True):
         if new:
             self.randomize_env()
-        return super(RandomExtremeHopper, self)._reset(new)
+        return super(RandomExtremeHopper, self).reset(new)
 
     @property
     def parameters(self):
