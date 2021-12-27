@@ -77,8 +77,6 @@ class PPO():
 
         self.actor = actor
         self.critic = critic
-        # NOTE: whether using one or two optim
-        # self.optim = optim
         self.actor_optim = actor_optim
         self.critic_optim = critic_optim
         self.dist_fn = dist_fn
@@ -169,13 +167,13 @@ class PPO():
 
             end_time = time.time()
             # log everything
-            writer.add_scalar('avg_return', np.mean(traj_return), T)
-            writer.add_scalar('wst10_return', np.mean(traj_return[:len(traj_return)//10]), T)
-            writer.add_scalar('avg_length', np.mean(traj_length), T)
-            writer.add_scalar('E_bar', np.sum(traj_return*traj_weight), T)
-            writer.add_scalar('ev', np.mean(ev_list), T)
-            writer.add_scalar('actor_loss', np.mean(actor_loss_list), T)
-            writer.add_scalar('critic_loss', np.mean(critic_loss_list), T)
+            writer.add_scalar('metric/avg_return', np.mean(traj_return), T)
+            writer.add_scalar('metric/wst10_return', np.mean(traj_return[:len(traj_return)//10]), T)
+            writer.add_scalar('metric/avg_length', np.mean(traj_length), T)
+            writer.add_scalar('metric/E_bar', np.sum(traj_return*traj_weight), T)
+            writer.add_scalar('loss/ev', np.mean(ev_list), T)
+            writer.add_scalar('loss/actor_loss', np.mean(actor_loss_list), T)
+            writer.add_scalar('loss/critic_loss', np.mean(critic_loss_list), T)
             if (T+1) % self.log_freq == 0:
                 logger.logkv('time_rollout', st2-st1)
                 logger.logkv('time_training', end_time-st2)
@@ -198,7 +196,15 @@ class PPO():
                 traj_info_path = os.path.join(logger.get_dir(), f'seq_dict_list-{T}.pkl')
                 with open(traj_info_path, 'wb') as fout:
                     pickle.dump(seq_dict_list, fout)
-
+                # 保存obs的normalization参数
+                obs_norms = {
+                    'clipob': self.env.clipob,
+                    'mean': self.env.ob_rms.mean,
+                    'var': self.env.ob_rms.var+self.env.epsilon
+                }
+                norm_param_path = os.path.join(logger.get_dir(), f'norm_param-{T}.pkl')
+                with open(norm_param_path, 'wb') as f:
+                    pickle.dump(obs_norms, f)
         self.env.close()
 
     def rollout(self, traj_params=[]):

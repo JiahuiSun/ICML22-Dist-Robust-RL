@@ -52,7 +52,6 @@ def main(args):
         if isinstance(m, th.nn.Linear):
             th.nn.init.zeros_(m.bias)
             m.weight.data.copy_(0.01 * m.weight.data)
-    # optim = Adam(list(actor.parameters())+list(critic.parameters()), lr=args.lr)
     actor_optim = Adam(actor.parameters(), lr=args.lr)
     critic_optim = Adam(critic.parameters(), lr=args.lr)
     
