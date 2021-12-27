@@ -73,11 +73,11 @@ class EnvParamDist():
             percent = self.integral(left, right)
         return traj_params, param_percents
 
-    def sample(self, size=(1, 2)):
+    def sample(self, left, right, size=(1, 2)):
         # size = num x k
-        tmp = self.param_dist.rvs(size=size)
-        min_param = self.start.reshape(1, -1).repeat(size[0], axis=0)
-        max_param = self.end.reshape(1, -1).repeat(size[0], axis=0)
+        tmp = np.random.uniform(left, right)
+        min_param = left.reshape(1, -1).repeat(size[0], axis=0)
+        max_param = right.reshape(1, -1).repeat(size[0], axis=0)
         return np.clip(tmp, min_param, max_param)
 
     def integral(self, left, right):
