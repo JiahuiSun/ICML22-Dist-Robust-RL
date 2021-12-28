@@ -97,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_id', type=str, default='SunblazeWalker2d-v0')
     parser.add_argument('--seed', type=int, default=12)
     parser.add_argument('--n_cpu', type=int, default=4)
-    parser.add_argument('--cuda', type=int, default=0)
+    parser.add_argument('--cuda', type=int, default=-1)
     parser.add_argument('--output', type=str, default='output')
 
     parser.add_argument('--param_dist', type=str, default='uniform', choices=['gaussian', 'uniform'])

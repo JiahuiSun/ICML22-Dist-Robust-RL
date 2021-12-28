@@ -128,7 +128,7 @@ class PPO():
                     # Calculate loss for critic
                     vs, curr_log_probs = self.evaluate(data['obs'], np.array(param), data['act'])
                     vs_next, _ = self.evaluate(data['obs_next'], np.array(param))
-                    vs_numpy, vs_next_numpy = vs.detach().numpy(), vs_next.detach().numpy()
+                    vs_numpy, vs_next_numpy = vs.detach().cpu().numpy(), vs_next.detach().cpu().numpy()
                     adv_numpy = _gae_return(
                         vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
                     )
