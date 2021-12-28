@@ -44,7 +44,7 @@ class PPO():
         traj_per_param=1,
         gamma=0.99,
         gae_lambda=0.95,
-        vf_coef=0.25,
+        param_dist='uniform',
         block_num=100,
         repeat_per_collect=10,
         action_scaling=True,
@@ -64,7 +64,7 @@ class PPO():
         self.gamma = gamma
         self.gae_lambda = gae_lambda
         self.clip = clip
-        self.vf_coef = vf_coef
+        self.param_dist = param_dist
         self.repeat_per_collect = repeat_per_collect
         self.save_freq = save_freq
         self.log_freq = log_freq
@@ -83,7 +83,11 @@ class PPO():
         self.dist_fn = dist_fn
 
         lower_param1, upper_param1, lower_param2, upper_param2 = self.env.get_lower_upper_bound()
-        self.env_para_dist = EnvParamDist(param_start=[lower_param1, lower_param2], param_end=[upper_param1, upper_param2])
+        self.env_para_dist = EnvParamDist(
+            param_start=[lower_param1, lower_param2], 
+            param_end=[upper_param1, upper_param2], 
+            dist_type=param_dist
+        )
 
     def learn(self, total_iters=1000):
         st_time = time.time()

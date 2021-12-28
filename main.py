@@ -74,7 +74,7 @@ def main(args):
         traj_per_param=args.traj_per_param,
         gamma=args.gamma,
         gae_lambda=args.gae_lambda,
-        vf_coef=args.vf_coef,
+        param_dist=args.param_dist,
         block_num=args.block_num,
         repeat_per_collect=args.repeat_per_collect,
         action_scaling=args.action_scaling,
@@ -94,25 +94,26 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("Distribution Robust RL")
     parser.add_argument('--env_id', type=str, default='SunblazeWalker2d-v0')
     parser.add_argument('--seed', type=int, default=12)
-    parser.add_argument('--n_cpu', type=int, default=20)
+    parser.add_argument('--n_cpu', type=int, default=4)
     parser.add_argument('--output', type=str, default='output')
 
+    parser.add_argument('--param_dist', type=str, default='uniform', choices=['gaussian', 'uniform'])
     parser.add_argument('--block_num', type=int, default=100)
-    parser.add_argument('--vf_coef', type=int, default=0.25)
+    parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--action_scaling', type=int, default=1, help='whether to scale action')
+    parser.add_argument('--eval_k', dest='eval_k', type=int, default=1)
+    parser.add_argument('--traj_per_param', type=float, default=1)
+    parser.add_argument('--max_grad_norm', type=float, default=1.0)
+
     parser.add_argument('--clip', type=float, default=0.2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--gae_lambda', type=float, default=0.95)
-    parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--total_iters', type=int, default=1000)
-    parser.add_argument('--action_scaling', type=int, default=1, help='whether scale action')
-    parser.add_argument('--norm_adv', type=int, default=1, help='whether norm adv')
-    parser.add_argument('--add_param', type=int, default=1, help='whether add param')
-    parser.add_argument('--max_grad_norm', type=float, default=1.0)
+    parser.add_argument('--norm_adv', type=int, default=1, help='whether to norm adv')
+    parser.add_argument('--add_param', type=int, default=1, help='whether to add param')
     parser.add_argument('--repeat_per_collect', type=float, default=10)
     parser.add_argument('--log_freq', type=int, default=1)
     parser.add_argument('--save_freq', type=int, default=10)
-    parser.add_argument('--eval_k', dest='eval_k', type=int, default=2)
-    parser.add_argument('--traj_per_param', type=float, default=1)
     args = parser.parse_args()
 
     main(args)

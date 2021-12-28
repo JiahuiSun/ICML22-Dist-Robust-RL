@@ -37,9 +37,10 @@ class EnvParamDist():
         self.end = np.array(param_end)
         self.mu = (self.start + self.end) / 2
         self.sigma = (self.mu - self.start) / 3
-        cov = np.diag(self.sigma)**2
+        self.cov = np.diag(self.sigma)**2
+        self.dist_type = dist_type
         if dist_type == 'gaussian':
-            self.param_dist = multivariate_normal(mean=self.mu, cov=cov)
+            self.param_dist = multivariate_normal(mean=self.mu, cov=self.cov)
         elif dist_type == 'uniform':
             self.param_dist = uniform(loc=self.start, scale=self.end-self.start)
         else:
@@ -47,29 +48,27 @@ class EnvParamDist():
 
     def set_division(self, block_num):
         traj_params, param_percents = [], {}
-
-        block_size = (self.end - self.start) / np.sqrt(block_num)
+        edge_num = np.sqrt(block_num)
+        block_size = (self.end - self.start) / edge_num
         block_size_density = block_size.copy()
         block_size_friction = block_size.copy()
         block_size_friction[0] = 0
         block_size_density[1] = 0
         left = np.array(self.start)
-        right = left + block_size_friction
-        right = right + block_size_density
-        param = self.sample(left, right)
+        right = left + block_size_friction + block_size_density
+        param = np.random.uniform(left, right)
         percent = self.integral(left, right)
         for N in range(block_num):
-            traj_params.append(list(param[0]))
-            param_percents[tuple(param[0])] = percent
-            if N % block_num ** 0.5 != block_num ** 0.5 - 1:
+            traj_params.append(list(param))
+            param_percents[tuple(param)] = percent
+            if N % edge_num != edge_num - 1:
                 left = left + block_size_friction
                 right = right + block_size_friction
             else:
                 left = left + block_size_density
                 left[1] = self.start[1]
-                right = left + block_size_friction
-                right = right + block_size_density
-            param = self.sample(left, right)
+                right = left + block_size_friction + block_size_density
+            param = np.random.uniform(left, right)
             percent = self.integral(left, right)
         return traj_params, param_percents
 
@@ -81,15 +80,20 @@ class EnvParamDist():
         return np.clip(tmp, min_param, max_param)
 
     def integral(self, left, right):
-        left_right = left.copy()
-        right_left = left.copy()
-        left_right[0] = right[0]
-        right_left[1] = right[1]
-        right_cdf = self.param_dist.cdf(right)
-        left_cdf = self.param_dist.cdf(left)
-        left_right_cdf = self.param_dist.cdf(left_right)
-        right_left_cdf = self.param_dist.cdf(right_left)
-        return right_cdf - left_right_cdf - right_left_cdf + left_cdf
+        if self.dist_type == 'gaussian':
+            left_right = left.copy()
+            right_left = left.copy()
+            left_right[0] = right[0]
+            right_left[1] = right[1]
+            right_cdf = self.param_dist.cdf(right)
+            left_cdf = self.param_dist.cdf(left)
+            left_right_cdf = self.param_dist.cdf(left_right)
+            right_left_cdf = self.param_dist.cdf(right_left)
+            return right_cdf - left_right_cdf - right_left_cdf + left_cdf
+        else:
+            p1 = (right[0] - left[0]) / (self.end[0] - self.start[0])
+            p2 = (right[1] - left[1]) / (self.end[1] - self.start[1])
+            return p1 * p2
 
 
 class CircularList():
