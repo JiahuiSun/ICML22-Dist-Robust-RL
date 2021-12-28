@@ -170,7 +170,9 @@ class PPO():
                     
                     total_actor_loss += traj_weight_dict[param] * actor_loss
                     total_critic_loss += 1 / self.block_num * critic_loss
-                    ev = explained_variance(vs_numpy, returns_numpy)
+                    
+                    vs_numpy = value.detach().cpu().numpy()
+                    ev = explained_variance(vs_numpy, data['target'])
                     ev_list.append(ev)
 
                 self.actor_optim.zero_grad()

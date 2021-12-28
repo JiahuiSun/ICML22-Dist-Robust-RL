@@ -109,7 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('--eval_k', type=int, default=1)
     parser.add_argument('--traj_per_param', type=float, default=1)
     parser.add_argument('--max_grad_norm', type=float, default=1.0)
-    parser.add_argument('--recompute_adv', type=int, default=1)
+    parser.add_argument('--recompute_adv', type=int, default=0)
     parser.add_argument('--value_clip', type=int, default=1)
 
     parser.add_argument('--clip', type=float, default=0.2)
