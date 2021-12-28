@@ -82,6 +82,8 @@ def main(args):
         norm_adv=args.norm_adv,
         add_param=args.add_param,
         max_grad_norm=args.max_grad_norm,
+        recompute_adv=args.recompute_adv,
+        value_clip=args.value_clip,
         clip=args.clip,
         save_freq=args.save_freq,
         log_freq=args.log_freq,
@@ -104,9 +106,11 @@ if __name__ == '__main__':
     parser.add_argument('--block_num', type=int, default=100)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--action_scaling', type=int, default=1, help='whether to scale action')
-    parser.add_argument('--eval_k', dest='eval_k', type=int, default=1)
+    parser.add_argument('--eval_k', type=int, default=1)
     parser.add_argument('--traj_per_param', type=float, default=1)
     parser.add_argument('--max_grad_norm', type=float, default=1.0)
+    parser.add_argument('--recompute_adv', type=int, default=1)
+    parser.add_argument('--value_clip', type=int, default=1)
 
     parser.add_argument('--clip', type=float, default=0.2)
     parser.add_argument('--gamma', type=float, default=0.99)

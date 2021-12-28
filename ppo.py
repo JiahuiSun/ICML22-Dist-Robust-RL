@@ -50,6 +50,8 @@ class PPO():
         action_scaling=True,
         norm_adv=True,
         add_param=True,
+        recompute_adv=True,
+        value_clip=True,
         max_grad_norm=0.5,
         clip=0.2,
         save_freq=10,
@@ -77,6 +79,8 @@ class PPO():
         self.norm_adv = norm_adv
         self.add_param = add_param
         self.max_grad_norm = max_grad_norm
+        self.recompute_adv = recompute_adv
+        self.value_clip = value_clip
 
         self.actor = actor
         self.critic = critic
@@ -122,22 +126,40 @@ class PPO():
 
             # training
             actor_loss_list, critic_loss_list, ev_list = [], [], []
-            for _ in range(self.repeat_per_collect):
+            for repeat in range(self.repeat_per_collect):
+                if self.recompute_adv and repeat > 0:
+                    for param, data in buffer.items():
+                        # compute GAE
+                        with th.no_grad():
+                            vs, _ = self.evaluate(data['obs'], np.array(param))
+                            vs_next, _ = self.evaluate(data['obs_next'], np.array(param))
+                        vs_numpy, vs_next_numpy = vs.cpu().numpy(), vs_next.cpu().numpy()
+                        adv_numpy = _gae_return(
+                            vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
+                        )
+                        returns_numpy = adv_numpy + vs_numpy
+                        data['vs'] = vs_numpy
+                        data['adv'] = adv_numpy
+                        data['target'] = returns_numpy
+
                 total_actor_loss, total_critic_loss = 0, 0
                 for param, data in buffer.items():
                     # Calculate loss for critic
-                    vs, curr_log_probs = self.evaluate(data['obs'], np.array(param), data['act'])
-                    vs_next, _ = self.evaluate(data['obs_next'], np.array(param))
-                    vs_numpy, vs_next_numpy = vs.detach().cpu().numpy(), vs_next.detach().cpu().numpy()
-                    adv_numpy = _gae_return(
-                        vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
-                    )
-                    returns_numpy = adv_numpy + vs_numpy
-                    returns = th.tensor(returns_numpy, dtype=th.float32, device=self.device)
-                    critic_loss = F.mse_loss(vs, returns)
+                    value, curr_log_probs = self.evaluate(data['obs'], np.array(param), data['act'])
+                    target = th.tensor(data['target'], dtype=th.float32, device=self.device)
+                    # NOTE: 只有不recompute adv时，value clip才有意义
+                    if self.value_clip:
+                        vs = th.tensor(data['vs'], dtype=th.float32, device=self.device)
+                        v_clip = vs + (value - vs).clamp(-self.clip, self.clip)
+                        vf1 = (target - value).pow(2)
+                        vf2 = (target - v_clip).pow(2)
+                        critic_loss = th.max(vf1, vf2).mean()
+                    else:
+                        critic_loss = (target - value).pow(2).mean()
 
                     # Calculate loss for actor
-                    adv = th.tensor(adv_numpy, dtype=th.float32, device=self.device)
+                    adv = th.tensor(data['adv'], dtype=th.float32, device=self.device)
+                    # NOTE: 不管是否recompute adv，old_log_probs都不变，都是原来执行时产生的值
                     old_log_probs = th.tensor(data['log_prob'], dtype=th.float32, device=self.device)
                     if self.norm_adv:
                         adv = (adv - adv.mean()) / adv.std()
@@ -270,6 +292,19 @@ class PPO():
             done_idx = np.where(data['done'])[0]
             data['return'] = np.sum(data['real_rew'][:max(done_idx)+1]) / len(done_idx)
             data['length'] = (max(done_idx)+1) / len(done_idx)
+            # compute GAE
+            with th.no_grad():
+                vs, _ = self.evaluate(data['obs'], np.array(param))
+                vs_next, _ = self.evaluate(data['obs_next'], np.array(param))
+            vs_numpy, vs_next_numpy = vs.cpu().numpy(), vs_next.cpu().numpy()
+            adv_numpy = _gae_return(
+                vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
+            )
+            returns_numpy = adv_numpy + vs_numpy
+            data['vs'] = vs_numpy
+            data['adv'] = adv_numpy
+            data['target'] = returns_numpy
+
         return buffer
 
     def get_action(self, obs, params):
