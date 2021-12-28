@@ -29,6 +29,7 @@ def main(args):
     writer = SummaryWriter(log_dir)
     writer.add_text('config', f"{args}")
     set_global_seed(args.seed)
+    device = f'cuda:{args.cuda}' if args.cuda >= 0 else 'cpu'
 
     def make_env(env_id, seed):
         def _thunk():
@@ -45,8 +46,8 @@ def main(args):
     else:
         obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
-    actor = Actor(obs_dim, act_dim)
-    critic = Critic(obs_dim, 1)
+    actor = Actor(obs_dim, act_dim).to(device)
+    critic = Critic(obs_dim, 1).to(device)
     for m in list(actor.modules()) + list(critic.modules()):
         if isinstance(m, th.nn.Linear):
             # orthogonal initialization
@@ -84,7 +85,8 @@ def main(args):
         clip=args.clip,
         save_freq=args.save_freq,
         log_freq=args.log_freq,
-        writer=writer
+        writer=writer,
+        device=device
     )
 
     model.learn(total_iters=args.total_iters)
@@ -95,6 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--env_id', type=str, default='SunblazeWalker2d-v0')
     parser.add_argument('--seed', type=int, default=12)
     parser.add_argument('--n_cpu', type=int, default=4)
+    parser.add_argument('--cuda', type=int, default=0)
     parser.add_argument('--output', type=str, default='output')
 
     parser.add_argument('--param_dist', type=str, default='uniform', choices=['gaussian', 'uniform'])

@@ -54,7 +54,8 @@ class PPO():
         clip=0.2,
         save_freq=10,
         log_freq=1,
-        writer=None
+        writer=None,
+        device='cpu'
     ):
         self.env = env
         self.n_cpu = n_cpu
@@ -69,6 +70,7 @@ class PPO():
         self.save_freq = save_freq
         self.log_freq = log_freq
         self.writer = writer
+        self.device = device
 
         self.action_space = env.action_space
         self.action_scaling = action_scaling
@@ -131,12 +133,12 @@ class PPO():
                         vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
                     )
                     returns_numpy = adv_numpy + vs_numpy
-                    returns = th.tensor(returns_numpy, dtype=th.float32)
+                    returns = th.tensor(returns_numpy, dtype=th.float32, device=self.device)
                     critic_loss = F.mse_loss(vs, returns)
 
                     # Calculate loss for actor
-                    adv = th.tensor(adv_numpy, dtype=th.float32)
-                    old_log_probs = th.tensor(data['log_prob'], dtype=th.float32)
+                    adv = th.tensor(adv_numpy, dtype=th.float32, device=self.device)
+                    old_log_probs = th.tensor(data['log_prob'], dtype=th.float32, device=self.device)
                     if self.norm_adv:
                         adv = (adv - adv.mean()) / adv.std()
                     ratios = th.exp(curr_log_probs - old_log_probs)
@@ -276,12 +278,13 @@ class PPO():
             obs_params = np.concatenate((obs, params), axis=1)
         else:
             obs_params = obs
+        obs_params = th.tensor(obs_params, dtype=th.float32, device=self.device)
         with th.no_grad():
             mu, sigma = self.actor(obs_params)
             dist = self.dist_fn(mu, sigma)
             action = dist.sample()
             log_prob = dist.log_prob(action)
-        return action.numpy(), log_prob.numpy()
+        return action.cpu().numpy(), log_prob.cpu().numpy()
 
     def norm_params(self, params):
         # input: Nx2, output: Nx2
@@ -304,11 +307,12 @@ class PPO():
             batch_obs_params = np.concatenate((batch_obs, batch_param), axis=1)
         else:
             batch_obs_params = batch_obs
+        batch_obs_params = th.tensor(batch_obs_params, dtype=th.float32, device=self.device)
         vs = self.critic(batch_obs_params).squeeze()
         log_probs = None
         if batch_acts is not None:
             if isinstance(batch_acts, np.ndarray):
-                batch_acts = th.tensor(batch_acts, dtype=th.float32)
+                batch_acts = th.tensor(batch_acts, dtype=th.float32, device=self.device)
             mu, sigma = self.actor(batch_obs_params)
             dist = self.dist_fn(mu, sigma)
             log_probs = dist.log_prob(batch_acts)
