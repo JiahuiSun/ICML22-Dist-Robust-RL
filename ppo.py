@@ -5,7 +5,6 @@ import numpy as np
 from numba import njit
 import torch as th
 import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 
 from util import EnvParamDist, CircularList
 from baselines import logger
@@ -54,7 +53,8 @@ class PPO():
         max_grad_norm=0.5,
         clip=0.2,
         save_freq=10,
-        log_freq=1
+        log_freq=1,
+        writer=None
     ):
         self.env = env
         self.n_cpu = n_cpu
@@ -68,6 +68,7 @@ class PPO():
         self.repeat_per_collect = repeat_per_collect
         self.save_freq = save_freq
         self.log_freq = log_freq
+        self.writer = writer
 
         self.action_space = env.action_space
         self.action_scaling = action_scaling
@@ -86,7 +87,7 @@ class PPO():
 
     def learn(self, total_iters=1000):
         st_time = time.time()
-        writer = SummaryWriter(logger.get_dir())
+        writer = self.writer
         for T in range(total_iters):
             st1 = time.time()
             # 一次性返回100个参数及其概率

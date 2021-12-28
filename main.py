@@ -4,9 +4,11 @@ import argparse
 import time
 import os
 from torch.distributions import Independent, Normal
-from network import Actor, Critic
 from torch.optim import Adam
+from tensorboardX import SummaryWriter
+
 import sunblaze_envs
+from network import Actor, Critic
 from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines import logger
@@ -24,6 +26,8 @@ def main(args):
     logger.configure(dir=log_dir)
     with open(os.path.join(log_dir, f'seed-{args.seed}.txt'), 'w') as fout:
         fout.write(f"{args}")
+    writer = SummaryWriter(log_dir)
+    writer.add_text('config', f"{args}")
     set_global_seed(args.seed)
 
     def make_env(env_id, seed):
@@ -79,7 +83,8 @@ def main(args):
         max_grad_norm=args.max_grad_norm,
         clip=args.clip,
         save_freq=args.save_freq,
-        log_freq=args.log_freq
+        log_freq=args.log_freq,
+        writer=writer
     )
 
     model.learn(total_iters=args.total_iters)
