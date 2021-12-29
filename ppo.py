@@ -4,7 +4,6 @@ import os
 import numpy as np
 from numba import njit
 import torch as th
-import torch.nn.functional as F
 
 from util import EnvParamDist, CircularList
 from baselines import logger
@@ -125,22 +124,11 @@ class PPO():
             st2 = time.time()
 
             # training
+            buffer = self.compute_gae(buffer)
             actor_loss_list, critic_loss_list, ev_list = [], [], []
             for repeat in range(self.repeat_per_collect):
                 if self.recompute_adv and repeat > 0:
-                    for param, data in buffer.items():
-                        # compute GAE
-                        with th.no_grad():
-                            vs, _ = self.evaluate(data['obs'], np.array(param))
-                            vs_next, _ = self.evaluate(data['obs_next'], np.array(param))
-                        vs_numpy, vs_next_numpy = vs.cpu().numpy(), vs_next.cpu().numpy()
-                        adv_numpy = _gae_return(
-                            vs_numpy, vs_next_numpy, data['rew'], data['done'], self.gamma, self.gae_lambda
-                        )
-                        returns_numpy = adv_numpy + vs_numpy
-                        data['vs'] = vs_numpy
-                        data['adv'] = adv_numpy
-                        data['target'] = returns_numpy
+                    buffer = self.compute_gae(buffer)
 
                 total_actor_loss, total_critic_loss = 0, 0
                 for param, data in buffer.items():
@@ -294,6 +282,10 @@ class PPO():
             done_idx = np.where(data['done'])[0]
             data['return'] = np.sum(data['real_rew'][:max(done_idx)+1]) / len(done_idx)
             data['length'] = (max(done_idx)+1) / len(done_idx)
+        return buffer
+
+    def compute_gae(self, buffer):
+        for param, data in buffer.items():
             # compute GAE
             with th.no_grad():
                 vs, _ = self.evaluate(data['obs'], np.array(param))
