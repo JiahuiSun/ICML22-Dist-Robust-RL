@@ -79,7 +79,7 @@ if __name__ == '__main__':
 	parser.add_argument('--cuda', type=int, default=-1)
 	parser.add_argument('--n_cpu', type=int, default=20)
 
-	parser.add_argument('--action_scaling', type=int, default=1, help='whether to scale action')
+	parser.add_argument('--action_scaling', type=int, default=0, help='whether to scale action')
 	parser.add_argument('--traj_per_param', type=int, default=1)
 	parser.add_argument('--param_dist', type=str, default='uniform')
 	parser.add_argument('--test_output', type=str, default='test')	
