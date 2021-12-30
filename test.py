@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
 	# 提前生成好的，所有人都一样
 	if args.test_params_path:
-		test_params = np.load(args.test_params_path)
+		test_params = np.load(args.test_params_path)[:100]
 	else:
 		lower_param1, upper_param1, lower_param2, upper_param2 = env.get_lower_upper_bound()
 		env_para_dist = EnvParamDist(param_start=[lower_param1, lower_param2], param_end=[upper_param1, upper_param2])
