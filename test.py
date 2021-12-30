@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import time
 import os
+from os.path import join as pjoin
 from torch.distributions import Independent, Normal
 from network import Actor
 import sunblaze_envs
@@ -57,7 +58,9 @@ class Tester(PPO):
 		return_list = [data['return'] for param, data in buffer.items()]
 		length_list = [data['length'] for param, data in buffer.items()]
 		return_list.sort()
-		# 指标计算
+		# 指标计算和保存
+		with open(pjoin(logger.get_dir(), 'result.pkl'), 'wb') as f:
+			pickle.dump(buffer, f)
 		logger.logkv('avg_return', np.mean(return_list))
 		logger.logkv('wst10_return', np.mean(return_list[:len(return_list)//10]))
 		logger.logkv('avg_length', np.mean(length_list))
