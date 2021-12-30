@@ -24,8 +24,7 @@ def main(args):
         os.makedirs(log_dir)
     logger.reset()
     logger.configure(dir=log_dir)
-    with open(os.path.join(log_dir, f'seed-{args.seed}.txt'), 'w') as fout:
-        fout.write(f"{args}")
+    logger.info(f"{args}")
     writer = SummaryWriter(log_dir)
     writer.add_text('config', f"{args}")
     set_global_seed(args.seed)
@@ -60,7 +59,7 @@ def main(args):
     actor_optim = Adam(actor.parameters(), lr=args.lr)
     critic_optim = Adam(critic.parameters(), lr=args.lr)
     
-    def dist(mu, sigma):
+    def dist_fn(mu, sigma):
         return Independent(Normal(mu, sigma), 1)
 
     model = PPO(
@@ -69,7 +68,7 @@ def main(args):
         critic=critic,
         actor_optim=actor_optim,
         critic_optim=critic_optim,
-        dist_fn=dist,
+        dist_fn=dist_fn,
         n_cpu=args.n_cpu,
         eval_k=args.eval_k,
         traj_per_param=args.traj_per_param,
@@ -101,26 +100,26 @@ if __name__ == '__main__':
     parser.add_argument('--n_cpu', type=int, default=4)
     parser.add_argument('--cuda', type=int, default=-1)
     parser.add_argument('--output', type=str, default='output')
-
-    parser.add_argument('--param_dist', type=str, default='gaussian', choices=['gaussian', 'uniform'])
-    parser.add_argument('--block_num', type=int, default=100)
-    parser.add_argument('--lr', type=float, default=3e-4)
-    parser.add_argument('--action_scaling', type=int, default=0, help='whether to scale action')
     parser.add_argument('--eval_k', type=int, default=1)
-    parser.add_argument('--traj_per_param', type=float, default=1)
-    parser.add_argument('--max_grad_norm', type=float, default=0.5)
-    parser.add_argument('--recompute_adv', type=int, default=0)
-    parser.add_argument('--value_clip', type=int, default=1, help='whether to clip value')
 
+    parser.add_argument('--lr', type=float, default=3e-4)
+    parser.add_argument('--recompute_adv', type=int, default=0, help='whether to recompute adv')
+    parser.add_argument('--value_clip', type=int, default=1, help='whether to clip value')
+    parser.add_argument('--add_param', type=int, default=1, help='whether to add param')
+
+    parser.add_argument('--max_grad_norm', type=float, default=0.5)
+    parser.add_argument('--traj_per_param', type=float, default=1)
+    parser.add_argument('--action_scaling', type=int, default=0, help='whether to scale action')
+    parser.add_argument('--block_num', type=int, default=100)
+    parser.add_argument('--param_dist', type=str, default='gaussian', choices=['gaussian', 'uniform'])
     parser.add_argument('--clip', type=float, default=0.2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--gae_lambda', type=float, default=0.95)
     parser.add_argument('--total_iters', type=int, default=1000)
     parser.add_argument('--norm_adv', type=int, default=1, help='whether to norm adv')
-    parser.add_argument('--add_param', type=int, default=1, help='whether to add param')
     parser.add_argument('--repeat_per_collect', type=float, default=10)
     parser.add_argument('--log_freq', type=int, default=1)
-    parser.add_argument('--save_freq', type=int, default=10)
+    parser.add_argument('--save_freq', type=int, default=100)
     args = parser.parse_args()
 
     main(args)

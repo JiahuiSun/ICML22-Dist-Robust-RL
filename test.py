@@ -76,12 +76,12 @@ if __name__ == '__main__':
 	parser.add_argument('--actor_path', type=str, default='')
 	parser.add_argument('--norm_param_path', type=str, default='')
 	parser.add_argument('--add_param', type=int, default=1, help='whether add param')
-	parser.add_argument('--action_scaling', type=int, default=1, help='whether to scale action')
-
 	parser.add_argument('--cuda', type=int, default=-1)
+	parser.add_argument('--n_cpu', type=int, default=20)
+
+	parser.add_argument('--action_scaling', type=int, default=1, help='whether to scale action')
 	parser.add_argument('--traj_per_param', type=int, default=1)
 	parser.add_argument('--param_dist', type=str, default='uniform')
-	parser.add_argument('--n_cpu', type=int, default=20)
 	parser.add_argument('--test_output', type=str, default='test')	
 	args = parser.parse_args()
 
@@ -92,8 +92,7 @@ if __name__ == '__main__':
 		os.makedirs(log_dir)
 	logger.reset()
 	logger.configure(dir=log_dir)
-	with open(os.path.join(log_dir, f'seed-{args.seed}.txt'), 'w') as fout:
-		fout.write(f"{args}")
+	logger.info(str(args))
 	set_global_seed(args.seed)
 	device = f'cuda:{args.cuda}' if args.cuda >= 0 else 'cpu'
 
